@@ -153,13 +153,19 @@ extension WebSocketConnection: ChannelInboundHandler {
                 message.write(buffer: &buffer)
                 if frame.fin {
                     switch messageState {
-                    case .binary:
-                        fireReceivedData(data: frame.data.getData(at: 0, length: frame.data.readableBytes) ?? Data())
-                    case .text:
-                        fireReceivedString(message: frame.data.getString(at: 0, length: frame.data.readableBytes) ?? "") 
-                    case .unknown: //not possible
-                        break
-                    }
+                        case .binary:
+                            fireReceivedData(data: message.getData(at: 0, length: message.readableBytes) ?? Data())
+                        case .text:
+                            if let data = message {
+                                guard let text = data.getString(at: 0, length: data.readableBytes, encoding: .utf8) else {
+                                    connectionClosed(reason: .dataInconsistentWithMessage, description: "Failed to convert received payload to UTF-8 String")
+                                    return
+                                }
+                                fireReceivedString(message: text)
+                            }
+                        case .unknown: //not possible
+                            break
+                     }
                     messageState = .unknown
                 }
                 
